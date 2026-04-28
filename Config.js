@@ -13,7 +13,6 @@
  */
 
 var CONFIG = {
-
   // ============================================================
   // TÊN CÁC SHEET HỆ THỐNG
   // ============================================================
@@ -27,17 +26,15 @@ var CONFIG = {
   /** Sheet danh sách bản/tiểu khu (có dấu cách cuối tên) */
   SHEET_DS_BAN: "DS BẢN, TK ",
 
+  /** Sheet danh mục xã dùng cho web app nhập liệu */
+  SHEET_DM_XA: "DM_XA",
+
   /**
    * Danh sách TẤT CẢ sheet hệ thống (không phải sheet bản).
    * Script sẽ BỎ QUA các sheet này khi tổng hợp.
    * Nếu thêm sheet hệ thống mới → thêm tên vào đây.
    */
-  SHEETS_HE_THONG: [
-    "BIỂU TỔNG",
-    "BIỂU TỔNG TOÀN XÃ",
-    "DS BẢN, TK "
-  ],
-
+  SHEETS_HE_THONG: ["BIỂU TỔNG", "BIỂU TỔNG TOÀN XÃ", "DS BẢN, TK ", "DM_XA"],
 
   // ============================================================
   // CẤU TRÚC DÒNG - BIỂU TỔNG & CÁC SHEET BẢN
@@ -53,21 +50,19 @@ var CONFIG = {
    */
   DONG_DU_LIEU_BAT_DAU: 7,
 
-
   // ============================================================
   // CẤU TRÚC CỘT - BIỂU TỔNG & CÁC SHEET BẢN
   // ============================================================
 
-  COT_STT:      1,  // Cột A: Số thứ tự
-  COT_NOI_DUNG: 2,  // Cột B: Nội dung / Tên chỉ tiêu
-  COT_DVT:      3,  // Cột C: Đơn vị tính
-  COT_DAU_KY:   4,  // Cột D: Số liệu đầu kỳ báo cáo
-  COT_T10:      5,  // Cột E: Số liệu tháng 10
-  COT_T11:      6,  // Cột F: Số liệu tháng 11
-  COT_T12:      7,  // Cột G: Số liệu tháng 12
-  COT_LUY_KE:   8,  // Cột H: Luỹ kế từ đầu năm (= D+E+F+G)
-  COT_GHI_CHU:  9,  // Cột I: Ghi chú
-
+  COT_STT: 1, // Cột A: Số thứ tự
+  COT_NOI_DUNG: 2, // Cột B: Nội dung / Tên chỉ tiêu
+  COT_DVT: 3, // Cột C: Đơn vị tính
+  COT_DAU_KY: 4, // Cột D: Số liệu đầu kỳ báo cáo
+  COT_T10: 5, // Cột E: Số liệu tháng 10
+  COT_T11: 6, // Cột F: Số liệu tháng 11
+  COT_T12: 7, // Cột G: Số liệu tháng 12
+  COT_LUY_KE: 8, // Cột H: Luỹ kế từ đầu năm (= D+E+F+G)
+  COT_GHI_CHU: 9, // Cột I: Ghi chú
 
   // ============================================================
   // CẤU TRÚC DÒNG/CỘT - BIỂU TỔNG TOÀN XÃ
@@ -85,13 +80,12 @@ var CONFIG = {
    */
   TONG_XA_DONG_BAN_BAT_DAU: 5,
 
-  TONG_XA_COT_STT:       1,  // Cột A: Stt
-  TONG_XA_COT_TEN_BAN:   2,  // Cột B: Tên bản/tiểu khu
-  TONG_XA_COT_SO_HO:     3,  // Cột C: Số hộ
-  TONG_XA_COT_NHAN_KHAU: 4,  // Cột D: Số nhân khẩu
-  TONG_XA_COT_HO_NGHEO:  5,  // Cột E: Hộ nghèo
-  TONG_XA_COT_CAN_NGHEO: 6,  // Cột F: Hộ cận nghèo
-
+  TONG_XA_COT_STT: 1, // Cột A: Stt
+  TONG_XA_COT_TEN_BAN: 2, // Cột B: Tên bản/tiểu khu
+  TONG_XA_COT_SO_HO: 3, // Cột C: Số hộ
+  TONG_XA_COT_NHAN_KHAU: 4, // Cột D: Số nhân khẩu
+  TONG_XA_COT_HO_NGHEO: 5, // Cột E: Hộ nghèo
+  TONG_XA_COT_CAN_NGHEO: 6, // Cột F: Hộ cận nghèo
 
   // ============================================================
   // CÁC CHỈ TIÊU QUAN TRỌNG (dùng để tìm dòng tự động)
@@ -103,6 +97,5 @@ var CONFIG = {
   NOI_DUNG_TONG_SO_HO: "Tổng số hộ",
 
   /** Tên chỉ tiêu "Tổng số nhân khẩu" trong cột B */
-  NOI_DUNG_NHAN_KHAU: "Tổng số nhân khẩu"
-
+  NOI_DUNG_NHAN_KHAU: "Tổng số nhân khẩu",
 };

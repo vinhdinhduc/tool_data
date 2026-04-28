@@ -48,6 +48,8 @@ function onOpen() {
 
     // Tiện ích
     .addItem("🔄 Xây dựng lại toàn bộ công thức", "xayDungLaiCongThuc")
+    .addItem("🩺 Audit công thức BIỂU TỔNG", "auditBieuTong")
+    .addItem("⚡ Sửa tự động theo AUDIT", "suaTuDongTheoAudit")
     .addItem("🏘️ Xem danh sách sheet bản", "xemDanhSachBan")
 
     .addSeparator()
@@ -70,9 +72,32 @@ function onOpen() {
  */
 function laySheetBan(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var heThong = (CONFIG.SHEETS_HE_THONG || []).map(chuanHoaTenSheet_);
+
+  // Bổ sung sheet danh mục xã nếu cấu hình web app tồn tại.
+  if (typeof WEBAPP_CONFIG !== "undefined" && WEBAPP_CONFIG.XA_LIST_SHEET) {
+    heThong.push(chuanHoaTenSheet_(WEBAPP_CONFIG.XA_LIST_SHEET));
+  }
+
   return ss.getSheets().filter(function (sheet) {
-    return CONFIG.SHEETS_HE_THONG.indexOf(sheet.getName()) === -1;
+    var normalizedName = chuanHoaTenSheet_(sheet.getName());
+    if (heThong.indexOf(normalizedName) !== -1) {
+      return false;
+    }
+
+    // Bỏ qua các sheet audit sinh tự động để tránh lọc nhầm thành sheet bản.
+    if (normalizedName.indexOf("audit_") === 0) {
+      return false;
+    }
+
+    return true;
   });
+}
+
+function chuanHoaTenSheet_(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
 }
 
 /**
@@ -148,6 +173,46 @@ function laFormulaTongHop(formula) {
     formula.startsWith("='") &&
     formula.indexOf("'!") > 0
   );
+}
+
+function laFormulaLuyKe(formula, row) {
+  if (!formula || typeof formula !== "string") {
+    return false;
+  }
+
+  var normalized = formula.replace(/\s+/g, "").toUpperCase();
+  var pattern =
+    "^=\\$?D\\$?" +
+    row +
+    "\\+\\$?E\\$?" +
+    row +
+    "\\+\\$?F\\$?" +
+    row +
+    "\\+\\$?G\\$?" +
+    row +
+    "$";
+  return new RegExp(pattern).test(normalized);
+}
+
+function trichXuatTenSheetTrongCongThuc_(formula) {
+  if (!formula || typeof formula !== "string") {
+    return [];
+  }
+
+  var names = [];
+  var regex = /'([^']+)'!/g;
+  var match;
+  while ((match = regex.exec(formula)) !== null) {
+    names.push(match[1]);
+  }
+  return names;
+}
+
+function congThucDangText_(formula) {
+  if (!formula || typeof formula !== "string") {
+    return formula || "";
+  }
+  return formula.startsWith("=") ? "'" + formula : formula;
 }
 
 /**
@@ -256,4 +321,311 @@ function hienThiHuongDan() {
     "trong các SHEET BẢN. BIỂU TỔNG tự động tổng hợp.";
 
   SpreadsheetApp.getUi().alert(msg);
+}
+
+// ============================================================
+// PHẦN 4: WEB APP NHẬP LIỆU CẤP XÃ
+// ============================================================
+
+var WEBAPP_CONFIG = {
+  XA_LIST_SHEET: "DM_XA",
+  XA_LIST_START_ROW: 2,
+  HEADER_ROW: 1,
+  FIELD_HEADERS: {
+    CREATED_AT: "Thời gian nhập",
+    XA: "Tên xã",
+    TONG_SO_HO: "Tổng số hộ",
+    TONG_NHAN_KHAU: "Tổng nhân khẩu",
+    HO_NGHEO: "Hộ nghèo",
+    HO_CAN_NGHEO: "Hộ cận nghèo",
+    GHI_CHU: "Ghi chú",
+  },
+};
+
+/**
+ * Render giao diện Web App.
+ */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("Hệ thống nhập liệu thống kê cấp xã")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Lấy danh sách xã cho dropdown.
+ * Ưu tiên lấy từ sheet DM_XA, fallback lấy theo tên sheet không thuộc hệ thống.
+ *
+ * @returns {string[]} Danh sách tên xã
+ */
+function getXaList() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var xaList = docDanhMucXa_(ss);
+
+  if (xaList.length === 0) {
+    xaList = layTenSheetBan(ss);
+  }
+
+  return uniqueValues_(xaList).sort(function (a, b) {
+    return a.localeCompare(b, "vi");
+  });
+}
+
+/**
+ * Lưu dữ liệu nhập từ frontend vào đúng sheet xã.
+ *
+ * @param {Object} data Dữ liệu từ form
+ * @returns {{ok:boolean,message:string,sheetName:string,row:number}}
+ */
+function saveData(data) {
+  try {
+    if (!data || typeof data !== "object") {
+      throw new Error("Dữ liệu gửi lên không hợp lệ.");
+    }
+
+    var xa = normalizeText_(data.xa);
+    if (!xa) {
+      throw new Error("Vui lòng chọn tên xã.");
+    }
+
+    var payload = {
+      tongSoHo: toNumber_(data.tongSoHo, "Tổng số hộ"),
+      tongNhanKhau: toNumber_(data.tongNhanKhau, "Tổng nhân khẩu"),
+      hoNgheo: toNumber_(data.hoNgheo, "Hộ nghèo"),
+      hoCanNgheo: toNumber_(data.hoCanNgheo, "Hộ cận nghèo"),
+      ghiChu: normalizeText_(data.ghiChu || ""),
+    };
+
+    var sheet = ensureXaDataSheet_(xa);
+    var headerMap = ensureHeaderMap_(sheet);
+
+    var rowTemplate = new Array(sheet.getLastColumn()).fill("");
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.CREATED_AT] - 1] =
+      new Date();
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.XA] - 1] = xa;
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.TONG_SO_HO] - 1] =
+      payload.tongSoHo;
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.TONG_NHAN_KHAU] - 1] =
+      payload.tongNhanKhau;
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.HO_NGHEO] - 1] =
+      payload.hoNgheo;
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.HO_CAN_NGHEO] - 1] =
+      payload.hoCanNgheo;
+    rowTemplate[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.GHI_CHU] - 1] =
+      payload.ghiChu;
+
+    sheet.appendRow(rowTemplate);
+
+    return {
+      ok: true,
+      message: "Đã lưu dữ liệu thành công.",
+      sheetName: sheet.getName(),
+      row: sheet.getLastRow(),
+    };
+  } catch (err) {
+    throw new Error("Lưu dữ liệu thất bại: " + err.message);
+  }
+}
+
+/**
+ * Tổng hợp dữ liệu từ tất cả xã.
+ * Hàm trả dữ liệu cho Web App hiển thị dashboard nhanh.
+ *
+ * @returns {{rows:Object[],totals:Object,updatedAt:string}}
+ */
+function tongHopDuLieuCacXa() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var xaList = getXaList();
+  var summaryRows = [];
+  var totals = {
+    tongSoHo: 0,
+    tongNhanKhau: 0,
+    hoNgheo: 0,
+    hoCanNgheo: 0,
+    soXa: 0,
+  };
+
+  xaList.forEach(function (xa) {
+    var sheet = ss.getSheetByName(xa);
+    if (!sheet) {
+      return;
+    }
+
+    var headerMap = ensureHeaderMap_(sheet);
+    var lastRow = sheet.getLastRow();
+
+    if (lastRow <= WEBAPP_CONFIG.HEADER_ROW) {
+      summaryRows.push({
+        xa: xa,
+        tongSoHo: 0,
+        tongNhanKhau: 0,
+        hoNgheo: 0,
+        hoCanNgheo: 0,
+      });
+      totals.soXa++;
+      return;
+    }
+
+    var values = sheet
+      .getRange(
+        WEBAPP_CONFIG.HEADER_ROW + 1,
+        1,
+        lastRow - WEBAPP_CONFIG.HEADER_ROW,
+        sheet.getLastColumn(),
+      )
+      .getValues();
+
+    var rowTotal = {
+      xa: xa,
+      tongSoHo: 0,
+      tongNhanKhau: 0,
+      hoNgheo: 0,
+      hoCanNgheo: 0,
+    };
+
+    values.forEach(function (row) {
+      rowTotal.tongSoHo += safeNumber_(
+        row[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.TONG_SO_HO] - 1],
+      );
+      rowTotal.tongNhanKhau += safeNumber_(
+        row[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.TONG_NHAN_KHAU] - 1],
+      );
+      rowTotal.hoNgheo += safeNumber_(
+        row[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.HO_NGHEO] - 1],
+      );
+      rowTotal.hoCanNgheo += safeNumber_(
+        row[headerMap[WEBAPP_CONFIG.FIELD_HEADERS.HO_CAN_NGHEO] - 1],
+      );
+    });
+
+    totals.tongSoHo += rowTotal.tongSoHo;
+    totals.tongNhanKhau += rowTotal.tongNhanKhau;
+    totals.hoNgheo += rowTotal.hoNgheo;
+    totals.hoCanNgheo += rowTotal.hoCanNgheo;
+    totals.soXa++;
+    summaryRows.push(rowTotal);
+  });
+
+  return {
+    rows: summaryRows,
+    totals: totals,
+    updatedAt: Utilities.formatDate(
+      new Date(),
+      Session.getScriptTimeZone(),
+      "dd/MM/yyyy HH:mm:ss",
+    ),
+  };
+}
+
+/**
+ * Alias rõ nghĩa cho frontend.
+ */
+function getTongHopData() {
+  return tongHopDuLieuCacXa();
+}
+
+function docDanhMucXa_(ss) {
+  var sheet = ss.getSheetByName(WEBAPP_CONFIG.XA_LIST_SHEET);
+  if (!sheet) {
+    return [];
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < WEBAPP_CONFIG.XA_LIST_START_ROW) {
+    return [];
+  }
+
+  return sheet
+    .getRange(
+      WEBAPP_CONFIG.XA_LIST_START_ROW,
+      1,
+      lastRow - WEBAPP_CONFIG.XA_LIST_START_ROW + 1,
+      1,
+    )
+    .getValues()
+    .map(function (r) {
+      return normalizeText_(r[0]);
+    })
+    .filter(function (v) {
+      return v !== "";
+    });
+}
+
+function ensureXaDataSheet_(xa) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(xa);
+  if (!sheet) {
+    sheet = ss.insertSheet(xa);
+  }
+
+  ensureHeaderMap_(sheet);
+  sheet.setFrozenRows(1);
+  return sheet;
+}
+
+function ensureHeaderMap_(sheet) {
+  var requiredHeaders = [
+    WEBAPP_CONFIG.FIELD_HEADERS.CREATED_AT,
+    WEBAPP_CONFIG.FIELD_HEADERS.XA,
+    WEBAPP_CONFIG.FIELD_HEADERS.TONG_SO_HO,
+    WEBAPP_CONFIG.FIELD_HEADERS.TONG_NHAN_KHAU,
+    WEBAPP_CONFIG.FIELD_HEADERS.HO_NGHEO,
+    WEBAPP_CONFIG.FIELD_HEADERS.HO_CAN_NGHEO,
+    WEBAPP_CONFIG.FIELD_HEADERS.GHI_CHU,
+  ];
+
+  var lastCol = Math.max(sheet.getLastColumn(), requiredHeaders.length);
+  var headerValues = sheet
+    .getRange(WEBAPP_CONFIG.HEADER_ROW, 1, 1, lastCol)
+    .getValues()[0]
+    .map(function (v) {
+      return normalizeText_(v);
+    });
+
+  requiredHeaders.forEach(function (header) {
+    if (headerValues.indexOf(header) === -1) {
+      headerValues.push(header);
+    }
+  });
+
+  sheet
+    .getRange(WEBAPP_CONFIG.HEADER_ROW, 1, 1, headerValues.length)
+    .setValues([headerValues]);
+
+  var headerMap = {};
+  headerValues.forEach(function (header, idx) {
+    if (header) {
+      headerMap[header] = idx + 1;
+    }
+  });
+  return headerMap;
+}
+
+function normalizeText_(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value).trim();
+}
+
+function toNumber_(value, fieldName) {
+  var n = Number(value);
+  if (!isFinite(n) || n < 0) {
+    throw new Error(fieldName + " phải là số không âm.");
+  }
+  return n;
+}
+
+function safeNumber_(value) {
+  var n = Number(value);
+  return isFinite(n) ? n : 0;
+}
+
+function uniqueValues_(arr) {
+  return Array.from(
+    new Set(
+      arr.filter(function (v) {
+        return normalizeText_(v) !== "";
+      }),
+    ),
+  );
 }
