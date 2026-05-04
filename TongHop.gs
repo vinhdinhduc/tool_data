@@ -11,30 +11,21 @@
  *
  * 2. tongHopToanXa()
  *    Cập nhật sheet BIỂU TỔNG TOÀN XÃ:
- *    số hộ và nhân khẩu theo từng bản.
+ *    số hộ, nhân khẩu, hộ nghèo, hộ cận nghèo theo từng bản.
+ *
+ * LỊCH SỬ SỬA LỖI:
+ *   v1.1 - Sửa điều kiện canRebuildRow: chỉ rebuild khi dòng đã
+ *          có ít nhất 1 công thức tổng hợp. Tránh ghi đè dữ liệu
+ *          người dùng nhập trực tiếp.
+ *        - Thêm rebuild cột H (Luỹ kế) khi bị mất.
+ *        - suaTuDongTheoAudit() xử lý đủ 3 loại lỗi thay vì chỉ
+ *          THIEU_CONG_THUC.
  * ============================================================
  */
 
 /**
  * CHỨC NĂNG CHÍNH (Cơ bản):
  * Tổng hợp dữ liệu từ tất cả sheet bản → BIỂU TỔNG
- *
- * ────────────────────────────────────────────────────────────
- * NGUYÊN LÝ HOẠT ĐỘNG:
- * ────────────────────────────────────────────────────────────
- * BIỂU TỔNG có các ô công thức dạng:
- *   D9 = ='BẢN NÀ LỐC'!D9 + 'BẢN NONG HEO'!D9 + ... + 'BẢN CÁT LÌNH'!D9
- *
- * Hàm này SCAN toàn bộ dòng trong BIỂU TỔNG:
- *   - Nếu ô (row, D|E|F|G) hiện có công thức tổng hợp:
- *     → Rebuild lại với ĐÚNG tên sheet hiện có + ĐÚNG số dòng hiện tại
- *   - Nếu ô trống (dòng tiêu đề, dòng đặc biệt):
- *     → Bỏ qua
- *
- * "TÍNH VỊ TRÍ THEO TỔNG SỐ DÒNG":
- *   Công thức dùng số dòng THỰC TẾ (biến `actualRow`),
- *   không phải số cố định → Đúng cả khi thêm/xóa dòng.
- * ────────────────────────────────────────────────────────────
  */
 function tongHopBieuTong() {
   var ui = SpreadsheetApp.getUi();
@@ -43,7 +34,6 @@ function tongHopBieuTong() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheetTong = ss.getSheetByName(CONFIG.SHEET_BIEU_TONG);
 
-    // Kiểm tra sheet tồn tại
     if (!sheetTong) {
       ui.alert(
         '❌ Không tìm thấy sheet "' +
@@ -54,7 +44,6 @@ function tongHopBieuTong() {
       return;
     }
 
-    // Lấy danh sách sheet bản
     var banNames = layTenSheetBan(ss);
     if (banNames.length === 0) {
       ui.alert(
@@ -76,27 +65,27 @@ function tongHopBieuTong() {
     var formulaStartCol = CONFIG.COT_DAU_KY;
     var formulaColCount = CONFIG.COT_T12 - CONFIG.COT_DAU_KY + 1; // D..G
 
-    // ── BATCH READ: Chỉ đọc công thức vùng tổng hợp D:G ──
     var formulaRange = sheetTong.getRange(
       dataStartRow,
       formulaStartCol,
       numRows,
       formulaColCount,
     );
-    var formulas = formulaRange.getFormulas(); // Mảng 2D [row][col], index từ 0
+    var formulas = formulaRange.getFormulas();
+
     var luyKeFormulas = sheetTong
       .getRange(dataStartRow, CONFIG.COT_LUY_KE, numRows, 1)
       .getFormulas();
 
     var updatedCount = 0;
 
-    // ── XỬ LÝ TỪNG DÒNG ──
     for (var i = 0; i < formulas.length; i++) {
-      // Số dòng THỰC TẾ trong Google Sheets (không phải index mảng)
-      // Đây chính là "tính vị trí theo tổng số dòng"
       var actualRow = dataStartRow + i;
 
-      var canRebuildRow = laFormulaLuyKe(luyKeFormulas[i][0], actualRow);
+      // [SỬA LỖI v1.1] Chỉ rebuild dòng nếu ÍT NHẤT 1 ô D-G đã có công thức tổng hợp.
+      // Không dùng laFormulaLuyKe làm điều kiện khởi tạo để tránh ghi đè
+      // dữ liệu người dùng nhập trực tiếp vào cột D-G.
+      var canRebuildRow = false;
       for (var k = 0; k < formulaColCount; k++) {
         if (laFormulaTongHop(formulas[i][k])) {
           canRebuildRow = true;
@@ -108,14 +97,10 @@ function tongHopBieuTong() {
         continue;
       }
 
-      // Kiểm tra cột D, E, F, G
+      // Rebuild cột D-G
       for (var j = 0; j < formulaColCount; j++) {
         var colNumber = formulaStartCol + j;
         var currentFormula = formulas[i][j];
-
-        // Xây dựng công thức mới với:
-        //   - Sheet names: lấy từ file HIỆN TẠI (không cố định)
-        //   - Row number: dùng actualRow THỰC TẾ (không cố định)
         var newFormula = xayDungCongThucTongHop(actualRow, colNumber, banNames);
 
         if (currentFormula !== newFormula) {
@@ -124,11 +109,18 @@ function tongHopBieuTong() {
         }
       }
 
-      // Cột H (Luỹ kế) - index 7: KHÔNG cần rebuild
-      // Google Sheets tự động cập nhật "=D9+E9+F9+G9" khi insert/delete rows
+      // [SỬA LỖI v1.1] Rebuild cột H (Luỹ kế) nếu bị mất hoặc sai.
+      // Trước đây bị comment "KHÔNG cần rebuild" dẫn đến không phục hồi khi cột H bị xóa.
+      var currentLuyKe = luyKeFormulas[i][0];
+      var expectedLuyKe = xayDungCongThucLuyKe(actualRow);
+      if (!laFormulaLuyKe(currentLuyKe, actualRow)) {
+        sheetTong
+          .getRange(actualRow, CONFIG.COT_LUY_KE)
+          .setFormula(expectedLuyKe);
+        updatedCount++;
+      }
     }
 
-    // Thông báo kết quả
     ui.alert(
       "✅ TỔNG HỢP BIỂU TỔNG HOÀN TẤT!\n\n" +
         "📊 Ô công thức đã cập nhật: " +
@@ -154,18 +146,10 @@ function tongHopBieuTong() {
 
 /**
  * CHỨC NĂNG PHỤ:
- * Cập nhật BIỂU TỔNG TOÀN XÃ từ số liệu sheet bản
+ * Cập nhật BIỂU TỔNG TOÀN XÃ từ số liệu sheet bản.
  *
- * ────────────────────────────────────────────────────────────
- * NGUYÊN LÝ:
- * ────────────────────────────────────────────────────────────
- * - BIỂU TỔNG TOÀN XÃ liệt kê 54 bản theo thứ tự (dòng 5-58)
- * - Mỗi dòng cần: Số hộ + Số nhân khẩu của bản đó
- * - Lấy từ sheet bản tương ứng (cột H = Luỹ kế)
- *
- * Tìm dòng "Tổng số hộ" ĐỘNG (timDong), không dùng số cố định.
- * Thứ tự sheet bản = thứ tự dòng trong BIỂU TỔNG TOÀN XÃ.
- * ────────────────────────────────────────────────────────────
+ * Tìm dòng "Tổng số hộ", "Tổng số nhân khẩu", "Hộ nghèo", "Hộ cận nghèo"
+ * ĐỘNG theo nội dung, không hardcode số dòng.
  */
 function tongHopToanXa() {
   var ui = SpreadsheetApp.getUi();
@@ -185,35 +169,20 @@ function tongHopToanXa() {
       return;
     }
 
-    // ── TÌM DÒNG CÁC CHỈ TIÊU THEO NỘI DUNG (không hardcode số dòng) ──
-    // Duyệt toàn bộ sheet bản để tránh lỗi khi sheet đầu tiên không phải sheet dữ liệu.
     var dongTongSoHo = -1;
     var dongNhanKhau = -1;
     var dongHoNgheo = -1;
     var dongHoCanNgheo = -1;
+
     for (var s = 0; s < banSheets.length; s++) {
-      var tempDongTongSoHo = timDong(banSheets[s], CONFIG.NOI_DUNG_TONG_SO_HO);
-      if (tempDongTongSoHo !== -1) {
-        dongTongSoHo = tempDongTongSoHo;
-      }
-
-      var tempDongNhanKhau = timDong(banSheets[s], CONFIG.NOI_DUNG_NHAN_KHAU);
-      if (tempDongNhanKhau !== -1) {
-        dongNhanKhau = tempDongNhanKhau;
-      }
-
-      var tempDongHoNgheo = timDong(banSheets[s], CONFIG.NOI_DUNG_HO_NGHEO);
-      if (tempDongHoNgheo !== -1) {
-        dongHoNgheo = tempDongHoNgheo;
-      }
-
-      var tempDongHoCanNgheo = timDong(
-        banSheets[s],
-        CONFIG.NOI_DUNG_HO_CAN_NGHEO,
-      );
-      if (tempDongHoCanNgheo !== -1) {
-        dongHoCanNgheo = tempDongHoCanNgheo;
-      }
+      if (dongTongSoHo === -1)
+        dongTongSoHo = timDong(banSheets[s], CONFIG.NOI_DUNG_TONG_SO_HO);
+      if (dongNhanKhau === -1)
+        dongNhanKhau = timDong(banSheets[s], CONFIG.NOI_DUNG_NHAN_KHAU);
+      if (dongHoNgheo === -1)
+        dongHoNgheo = timDong(banSheets[s], CONFIG.NOI_DUNG_HO_NGHEO);
+      if (dongHoCanNgheo === -1)
+        dongHoCanNgheo = timDong(banSheets[s], CONFIG.NOI_DUNG_HO_CAN_NGHEO);
 
       if (
         dongTongSoHo !== -1 &&
@@ -237,16 +206,13 @@ function tongHopToanXa() {
       return;
     }
 
-    // ── ĐẶT CÔNG THỨC THAM CHIẾU CHO TỪNG BẢN ──
     var startRow = CONFIG.TONG_XA_DONG_BAN_BAT_DAU;
     var updatedCount = 0;
 
     for (var i = 0; i < banSheets.length; i++) {
       var sheet = banSheets[i];
-      var targetRow = startRow + i; // Dòng tương ứng trong BIỂU TỔNG TOÀN XÃ
+      var targetRow = startRow + i;
 
-      // Dùng CÔNG THỨC (không phải giá trị) để tự động cập nhật khi bản thay đổi
-      // Dạng: ='TÊN SHEET'!H9
       sheetTongXa
         .getRange(targetRow, CONFIG.TONG_XA_COT_SO_HO)
         .setFormula("='" + sheet.getName() + "'!H" + dongTongSoHo);
@@ -272,30 +238,45 @@ function tongHopToanXa() {
       updatedCount++;
     }
 
-    // Thông báo kết quả
+    var warnings = [];
+    if (dongNhanKhau === -1)
+      warnings.push('"' + CONFIG.NOI_DUNG_NHAN_KHAU + '"');
+    if (dongHoNgheo === -1) warnings.push('"' + CONFIG.NOI_DUNG_HO_NGHEO + '"');
+    if (dongHoCanNgheo === -1)
+      warnings.push('"' + CONFIG.NOI_DUNG_HO_CAN_NGHEO + '"');
+
+    var warnMsg =
+      warnings.length > 0
+        ? "\n\n⚠️ Không tìm thấy chỉ tiêu:\n" + warnings.join("\n")
+        : "";
+
     ui.alert(
       "✅ CẬP NHẬT BIỂU TỔNG TOÀN XÃ HOÀN TẤT!\n\n" +
-        "🏘️ Số bản đã cập nhật:      " +
+        "🏘️ Bản/tiểu khu đã cập nhật: " +
         updatedCount +
         "\n" +
-        '📍 Dòng "Tổng số hộ":        ' +
+        "📍 Tổng số hộ tại dòng:      " +
         dongTongSoHo +
         "\n" +
-        '📍 Dòng "Số nhân khẩu":      ' +
-        (dongNhanKhau !== -1 ? dongNhanKhau : "❌ Không tìm thấy") +
-        "\n\n" +
-        "Ghi chú: Cột Hộ nghèo / Hộ cận nghèo\n" +
-        "cần nhập thủ công (không có trong báo cáo tháng).",
+        "📍 Nhân khẩu tại dòng:       " +
+        dongNhanKhau +
+        "\n" +
+        "📍 Hộ nghèo tại dòng:        " +
+        dongHoNgheo +
+        "\n" +
+        "📍 Hộ cận nghèo tại dòng:    " +
+        dongHoCanNgheo +
+        warnMsg,
     );
   } catch (e) {
-    ui.alert("❌ LỖI: " + e.message);
-    Logger.log("[tongHopToanXa] ERROR: " + e.message);
+    ui.alert("❌ LỖI KHI CẬP NHẬT TOÀN XÃ!\n\nChi tiết: " + e.message);
+    Logger.log("[tongHopToanXa] ERROR: " + e.message + "\n" + e.stack);
   }
 }
 
 /**
- * Audit BIỂU TỔNG: phát hiện thiếu công thức và tham chiếu sai sheet.
- * Kết quả chi tiết được ghi ra sheet AUDIT_BIEU_TONG.
+ * AUDIT: Quét BIỂU TỔNG, phát hiện ô thiếu hoặc sai công thức.
+ * Kết quả ghi ra sheet AUDIT_BIEU_TONG.
  */
 function auditBieuTong() {
   var ui = SpreadsheetApp.getUi();
@@ -355,11 +336,7 @@ function auditBieuTong() {
         }
       }
 
-      var canAuditRow =
-        laFormulaLuyKe(luyKeFormulas[i][0], actualRow) || rowHasFormulaTongHop;
-      if (!canAuditRow) {
-        continue;
-      }
+      if (!rowHasFormulaTongHop) continue;
 
       for (var j = 0; j < formulaColCount; j++) {
         var currentFormula = formulas[i][j];
@@ -382,9 +359,7 @@ function auditBieuTong() {
           continue;
         }
 
-        if (currentFormula === expectedFormula) {
-          continue;
-        }
+        if (currentFormula === expectedFormula) continue;
 
         var referencedSheets = trichXuatTenSheetTrongCongThuc_(currentFormula);
         var wrongSheets = referencedSheets.filter(function (sheetName) {
@@ -430,7 +405,6 @@ function auditBieuTong() {
       "Cong thuc ky vong",
       "Ghi chu",
     ];
-
     reportSheet.getRange(1, 1, 1, header.length).setValues([header]);
 
     var nowText = Utilities.formatDate(
@@ -452,7 +426,6 @@ function auditBieuTong() {
           issue[5],
         ];
       });
-
       reportSheet
         .getRange(2, 1, reportRows.length, header.length)
         .setValues(reportRows);
@@ -478,13 +451,28 @@ function auditBieuTong() {
 }
 
 /**
- * Sửa tự động các ô bị báo "THIEU_CONG_THUC" trong AUDIT_BIEU_TONG.
- * Đọc báo cáo audit, xác nhận rồi ghi lại công thức kỳ vọng vào BIỂU TỔNG.
+ * Sửa tự động theo AUDIT_BIEU_TONG.
+ *
+ * [SỬA LỖI v1.1] Xử lý đủ 3 loại lỗi thay vì chỉ THIEU_CONG_THUC:
+ *   - THIEU_CONG_THUC
+ *   - CONG_THUC_KHONG_KHOP
+ *   - THAM_CHIEU_SAI_SHEET
+ *
+ * KHONG_PHAI_CONG_THUC_TONG_HOP bị bỏ qua vì ô có thể chứa
+ * công thức hợp lệ do người dùng cố ý nhập (ví dụ: =SUM(D36:D38)+D41).
+ * Người dùng cần xem xét thủ công trước khi sửa.
  */
 function suaTuDongTheoAudit() {
   var ui = SpreadsheetApp.getUi();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var reportName = "AUDIT_BIEU_TONG";
+
+  // Danh sách loại lỗi được tự động sửa
+  var AUTO_FIX_TYPES = [
+    "THIEU_CONG_THUC",
+    "CONG_THUC_KHONG_KHOP",
+    "THAM_CHIEU_SAI_SHEET",
+  ];
 
   try {
     var reportSheet = ss.getSheetByName(reportName);
@@ -503,42 +491,59 @@ function suaTuDongTheoAudit() {
 
     var rows = reportSheet.getRange(2, 1, lastRow - 1, 8).getValues();
     var fixes = [];
+    var skipped = 0;
 
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var loai = r[4]; // Loai loi
-      if (loai !== "THIEU_CONG_THUC") continue;
+      var loai = r[4];
+      var dong = Number(r[2]);
+      var cotLetter = String(r[3] || "").trim();
+      var expected = r[6] || "";
 
-      var dong = Number(r[2]); // Dong
-      var cotLetter = String(r[3] || "").trim(); // Cot (D/E/F/G)
-      var expected = r[6] || ""; // Cong thuc ky vong (may start with '\'')
+      if (AUTO_FIX_TYPES.indexOf(loai) === -1) {
+        skipped++;
+        continue;
+      }
 
-      // Strip leading single-quote if present (audit stores formula as text)
       if (expected && expected.charAt(0) === "'") {
         expected = expected.substring(1);
       }
 
       if (!expected) continue;
 
-      var colNumber = cotLetter.charCodeAt(0) - 64; // 'A'->1
+      var colNumber = cotLetter.charCodeAt(0) - 64;
       if (isNaN(dong) || !cotLetter || colNumber < 1) continue;
 
-      fixes.push({ row: dong, col: colNumber, formula: expected });
+      fixes.push({ row: dong, col: colNumber, formula: expected, loai: loai });
     }
 
     if (fixes.length === 0) {
-      ui.alert('ℹ️ Không tìm thấy lỗi "THIEU_CONG_THUC" trong báo cáo.');
+      ui.alert(
+        "ℹ️ Không tìm thấy lỗi có thể sửa tự động.\n\n" +
+          (skipped > 0
+            ? skipped +
+              " lỗi KHONG_PHAI_CONG_THUC_TONG_HOP cần xem xét thủ công."
+            : ""),
+      );
       return;
     }
 
+    var confirmMsg =
+      "Thao tác sẽ ghi " +
+      fixes.length +
+      " công thức vào BIỂU TỔNG (D:G)." +
+      (skipped > 0
+        ? "\n\n⚠️ " +
+          skipped +
+          " lỗi KHONG_PHAI_CONG_THUC_TONG_HOP bị bỏ qua (cần xem xét thủ công)."
+        : "") +
+      "\n\nBạn có muốn tiếp tục?";
+
     var confirm = ui.alert(
       "⚡ Sửa tự động theo AUDIT",
-      "Thao tác sẽ ghi " +
-        fixes.length +
-        " công thức vào BIỂU TỔNG (D:G).\nBạn có muốn tiếp tục?",
+      confirmMsg,
       ui.ButtonSet.YES_NO,
     );
-
     if (confirm !== ui.Button.YES) return;
 
     var sheetTong = ss.getSheetByName(CONFIG.SHEET_BIEU_TONG);
@@ -555,10 +560,10 @@ function suaTuDongTheoAudit() {
         applied++;
       } catch (err) {
         Logger.log(
-          "[suaTuDongTheoAudit] Failed to set formula at " +
-            f.row +
-            "," +
-            f.col +
+          "[suaTuDongTheoAudit] Failed at row=" +
+            fixes[j].row +
+            " col=" +
+            fixes[j].col +
             ": " +
             err.message,
         );

@@ -98,4 +98,18 @@ var CONFIG = {
 
   /** Tên chỉ tiêu "Tổng số nhân khẩu" trong cột B */
   NOI_DUNG_NHAN_KHAU: "Tổng số nhân khẩu",
+
+  /**
+   * [SỬA LỖI v1.1] - Thêm 2 hằng số bị thiếu.
+   * Thiếu 2 hằng số này khiến tongHopToanXa() crash với TypeError
+   * khi gọi timDong(sheet, undefined) → undefined.trim().
+   * Cột E (Hộ nghèo) và F (Hộ cận nghèo) trong BIỂU TỔNG TOÀN XÃ
+   * hoàn toàn trống vì hàm không bao giờ chạy được đến bước ghi công thức.
+   */
+
+  /** Tên chỉ tiêu "Hộ nghèo" trong cột B */
+  NOI_DUNG_HO_NGHEO: "Hộ nghèo",
+
+  /** Tên chỉ tiêu "Hộ cận nghèo" trong cột B */
+  NOI_DUNG_HO_CAN_NGHEO: "Hộ cận nghèo",
 };

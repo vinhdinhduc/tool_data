@@ -7,6 +7,11 @@
  *   1. onOpen()  - Tạo menu tùy chỉnh khi mở file
  *   2. Các hàm tiện ích dùng chung (helper functions)
  *   3. Các hàm gọi từ menu (wrapper functions)
+ *
+ * LỊCH SỬ SỬA LỖI:
+ *   v1.1 - Thêm guard kiểm tra null/undefined vào timDong()
+ *          để tránh crash khi CONFIG thiếu hằng số.
+ *          Sửa tongHopBieuTong() để rebuild cả cột H khi bị mất.
  * ============================================================
  */
 
@@ -23,7 +28,6 @@ function onOpen() {
   try {
     ui = SpreadsheetApp.getUi();
   } catch (err) {
-    // Cho phép chạy onOpen từ context không có UI (Apps Script editor/trigger nền).
     Logger.log("[onOpen] UI not available in this context: " + err.message);
     return;
   }
@@ -74,7 +78,6 @@ function laySheetBan(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var heThong = (CONFIG.SHEETS_HE_THONG || []).map(chuanHoaTenSheet_);
 
-  // Bổ sung sheet danh mục xã nếu cấu hình web app tồn tại.
   if (typeof WEBAPP_CONFIG !== "undefined" && WEBAPP_CONFIG.XA_LIST_SHEET) {
     heThong.push(chuanHoaTenSheet_(WEBAPP_CONFIG.XA_LIST_SHEET));
   }
@@ -84,12 +87,9 @@ function laySheetBan(ss) {
     if (heThong.indexOf(normalizedName) !== -1) {
       return false;
     }
-
-    // Bỏ qua các sheet audit sinh tự động để tránh lọc nhầm thành sheet bản.
     if (normalizedName.indexOf("audit_") === 0) {
       return false;
     }
-
     return true;
   });
 }
@@ -124,13 +124,8 @@ function layTenSheetBan(ss) {
  * @param {number} colNumber  - Số cột (4=D, 5=E, 6=F, 7=G)
  * @param {string[]} banNames - Danh sách tên sheet bản
  * @returns {string} Công thức tổng hợp
- *
- * @example
- * xayDungCongThucTongHop(9, 4, ['BẢN NÀ LỐC','BẢN NONG HEO'])
- * // => "='BẢN NÀ LỐC'!D9+'BẢN NONG HEO'!D9"
  */
 function xayDungCongThucTongHop(row, colNumber, banNames) {
-  // Chuyển số cột → chữ cột: 4→'D', 5→'E', 6→'F', 7→'G'
   var colLetter = String.fromCharCode(64 + colNumber);
 
   var parts = banNames.map(function (name) {
@@ -145,9 +140,6 @@ function xayDungCongThucTongHop(row, colNumber, banNames) {
  *
  * @param {number} row - Số dòng thực tế
  * @returns {string} Công thức luỹ kế
- *
- * @example
- * xayDungCongThucLuyKe(9) // => "=D9+E9+F9+G9"
  */
 function xayDungCongThucLuyKe(row) {
   return "=D" + row + "+E" + row + "+F" + row + "+G" + row;
@@ -155,15 +147,9 @@ function xayDungCongThucLuyKe(row) {
 
 /**
  * Kiểm tra xem một chuỗi có phải là công thức tổng hợp không.
- * Công thức tổng hợp có dạng: ='TÊN_SHEET'!Cột Dòng+...
  *
  * @param {string} formula - Chuỗi cần kiểm tra
  * @returns {boolean}
- *
- * @example
- * laFormulaTongHop("='BẢN NÀ LỐC'!D9+...")  // => true
- * laFormulaTongHop("=D9+E9+F9+G9")           // => false
- * laFormulaTongHop("")                        // => false
  */
 function laFormulaTongHop(formula) {
   return (
@@ -224,24 +210,28 @@ function congThucDangText_(formula) {
  * hàm này TÌM KIẾM dòng đó theo NỘI DUNG.
  * → Khi thêm/xóa dòng, hàm vẫn tìm đúng vị trí.
  *
+ * [SỬA LỖI v1.1] Thêm guard kiểm tra null/undefined cho noiDung.
+ * Nếu thiếu hằng số trong CONFIG, hàm sẽ trả -1 thay vì crash.
+ *
  * @param {Sheet}  sheet    - Sheet cần tìm trong
  * @param {string} noiDung  - Nội dung cần tìm (cột B)
  * @param {number} [startRow] - Dòng bắt đầu tìm (mặc định: DONG_DU_LIEU_BAT_DAU)
  * @param {number} [col]      - Cột tìm kiếm (mặc định: COT_NOI_DUNG = cột B)
  * @returns {number} Số dòng tìm thấy, hoặc -1 nếu không có
- *
- * @example
- * var dong = timDong(sheetBan, 'Tổng số hộ');
- * // dong = 9 (hoặc bất kỳ dòng nào chứa "Tổng số hộ")
  */
 function timDong(sheet, noiDung, startRow, col) {
+  // [SỬA LỖI v1.1] Guard: tránh crash khi CONFIG thiếu hằng số
+  if (noiDung === null || noiDung === undefined || noiDung === "") {
+    Logger.log("[timDong] noiDung is null/undefined/empty — bỏ qua tìm kiếm.");
+    return -1;
+  }
+
   col = col || CONFIG.COT_NOI_DUNG;
   startRow = startRow || CONFIG.DONG_DU_LIEU_BAT_DAU;
 
   var lastRow = sheet.getLastRow();
   if (lastRow < startRow) return -1;
 
-  // Đọc toàn bộ cột B một lần (batch read)
   var values = sheet
     .getRange(startRow, col, lastRow - startRow + 1, 1)
     .getValues();
@@ -249,11 +239,11 @@ function timDong(sheet, noiDung, startRow, col) {
   for (var i = 0; i < values.length; i++) {
     var cellVal = values[i][0];
     if (cellVal && cellVal.toString().trim() === noiDung.trim()) {
-      return startRow + i; // Trả về số dòng THỰC TẾ
+      return startRow + i;
     }
   }
 
-  return -1; // Không tìm thấy
+  return -1;
 }
 
 // ============================================================
@@ -302,29 +292,25 @@ function hienThiHuongDan() {
     "   Script tự động tính tổng từ tất cả sheet bản\n" +
     "   và cập nhật công thức trong BIỂU TỔNG.\n\n" +
     "2. 📋 CẬP NHẬT BIỂU TỔNG TOÀN XÃ\n" +
-    "   Cập nhật số hộ và nhân khẩu theo từng bản\n" +
-    "   (kéo dữ liệu từ cột H của sheet bản tương ứng).\n\n" +
-    "3. ➕ THÊM DÒNG MỚI\n" +
-    "   Khi cần thêm chỉ tiêu báo cáo mới:\n" +
-    "   → Chèn dòng vào BIỂU TỔNG VÀ tất cả sheet bản\n" +
-    "   → Công thức tổng hợp tự động thiết lập\n" +
-    "   → Bạn chỉ cần điền Nội dung và Đơn vị tính\n\n" +
-    "4. ❌ XÓA DÒNG\n" +
-    "   Xóa chỉ tiêu khỏi tất cả sheet đồng bộ.\n" +
-    "   ⚠️ Không thể hoàn tác!\n\n" +
+    "   Cập nhật số hộ, nhân khẩu, hộ nghèo, cận nghèo\n" +
+    "   từng bản vào bảng tổng hợp toàn xã.\n\n" +
+    "3. ➕ THÊM DÒNG MỚI (Nâng cao)\n" +
+    "   Chèn dòng chỉ tiêu mới đồng thời vào TẤT CẢ sheet.\n" +
+    "   Sau khi thêm, chức năng tổng hợp vẫn hoạt động đúng.\n\n" +
+    "4. ❌ XÓA DÒNG (Nâng cao)\n" +
+    "   Xóa dòng chỉ tiêu đồng thời khỏi TẤT CẢ sheet.\n\n" +
     "5. 🔄 XÂY DỰNG LẠI CÔNG THỨC\n" +
-    "   Dùng khi:\n" +
-    "   → Thêm sheet bản mới vào file\n" +
-    "   → Công thức bị hỏng/lỗi\n\n" +
-    "═══════════════════════════════════\n" +
-    "Ghi chú: Dữ liệu nhập vào cột D-G (màu vàng)\n" +
-    "trong các SHEET BẢN. BIỂU TỔNG tự động tổng hợp.";
-
+    "   Dùng khi công thức bị lỗi hoặc thêm sheet bản mới.\n\n" +
+    "6. 🩺 AUDIT\n" +
+    "   Phát hiện ô thiếu công thức hoặc sai sheet tham chiếu.\n\n" +
+    "7. ⚡ SỬA TỰ ĐỘNG THEO AUDIT\n" +
+    "   Ghi lại công thức kỳ vọng cho ô bị báo THIEU_CONG_THUC,\n" +
+    "   CONG_THUC_KHONG_KHOP, và THAM_CHIEU_SAI_SHEET.";
   SpreadsheetApp.getUi().alert(msg);
 }
 
 // ============================================================
-// PHẦN 4: WEB APP NHẬP LIỆU CẤP XÃ
+// PHẦN 4: WEB APP
 // ============================================================
 
 var WEBAPP_CONFIG = {
@@ -353,9 +339,6 @@ function doGet() {
 
 /**
  * Lấy danh sách xã cho dropdown.
- * Ưu tiên lấy từ sheet DM_XA, fallback lấy theo tên sheet không thuộc hệ thống.
- *
- * @returns {string[]} Danh sách tên xã
  */
 function getXaList() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -427,10 +410,7 @@ function saveData(data) {
 }
 
 /**
- * Tổng hợp dữ liệu từ tất cả xã.
- * Hàm trả dữ liệu cho Web App hiển thị dashboard nhanh.
- *
- * @returns {{rows:Object[],totals:Object,updatedAt:string}}
+ * Tổng hợp dữ liệu từ tất cả xã (dùng cho Web App dashboard).
  */
 function tongHopDuLieuCacXa() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -446,9 +426,7 @@ function tongHopDuLieuCacXa() {
 
   xaList.forEach(function (xa) {
     var sheet = ss.getSheetByName(xa);
-    if (!sheet) {
-      return;
-    }
+    if (!sheet) return;
 
     var headerMap = ensureHeaderMap_(sheet);
     var lastRow = sheet.getLastRow();
@@ -516,23 +494,16 @@ function tongHopDuLieuCacXa() {
   };
 }
 
-/**
- * Alias rõ nghĩa cho frontend.
- */
 function getTongHopData() {
   return tongHopDuLieuCacXa();
 }
 
 function docDanhMucXa_(ss) {
   var sheet = ss.getSheetByName(WEBAPP_CONFIG.XA_LIST_SHEET);
-  if (!sheet) {
-    return [];
-  }
+  if (!sheet) return [];
 
   var lastRow = sheet.getLastRow();
-  if (lastRow < WEBAPP_CONFIG.XA_LIST_START_ROW) {
-    return [];
-  }
+  if (lastRow < WEBAPP_CONFIG.XA_LIST_START_ROW) return [];
 
   return sheet
     .getRange(
@@ -556,7 +527,6 @@ function ensureXaDataSheet_(xa) {
   if (!sheet) {
     sheet = ss.insertSheet(xa);
   }
-
   ensureHeaderMap_(sheet);
   sheet.setFrozenRows(1);
   return sheet;
@@ -593,17 +563,13 @@ function ensureHeaderMap_(sheet) {
 
   var headerMap = {};
   headerValues.forEach(function (header, idx) {
-    if (header) {
-      headerMap[header] = idx + 1;
-    }
+    if (header) headerMap[header] = idx + 1;
   });
   return headerMap;
 }
 
 function normalizeText_(value) {
-  if (value === null || value === undefined) {
-    return "";
-  }
+  if (value === null || value === undefined) return "";
   return String(value).trim();
 }
 
