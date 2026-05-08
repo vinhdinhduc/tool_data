@@ -1,4 +1,5 @@
 # 🏛️ Công cụ Tổng hợp Dữ liệu Cấp Xã
+
 **Google Apps Script – Xã Mường La**
 
 ---
@@ -50,7 +51,7 @@ Trong Apps Script Editor:
 2. Google yêu cầu cấp quyền → **Review permissions**
 3. Chọn tài khoản Google → **Allow**
 4. Quay lại Google Sheets → **Reload trang**
-5. Menu **"🏛️ Công cụ Xã"** xuất hiện trên thanh menu ✅
+5. Menu **"🏛️ Công cụ Xã"** xuất hiện trên thanh menu
 
 ---
 
@@ -61,11 +62,13 @@ Trong Apps Script Editor:
 > Menu: **🏛️ Công cụ Xã → 📊 Tổng hợp BIỂU TỔNG từ các bản**
 
 **Khi nào dùng:**
+
 - Sau khi các bản đã nhập xong số liệu vào cột D-G (ô màu vàng)
 - Khi muốn rebuild lại toàn bộ công thức (nếu bị hỏng)
 - Sau khi thêm sheet bản mới vào file
 
 **Cách hoạt động:**
+
 - Script scan tất cả dòng trong BIỂU TỔNG (dòng 7 → cuối)
 - Với mỗi ô có công thức tổng hợp (`='BẢN NÀ LỐC'!D9+...`)
 - Rebuild lại với **danh sách sheet hiện tại** + **số dòng thực tế**
@@ -74,9 +77,10 @@ Trong Apps Script Editor:
 
 ### Chức năng 2: Cập nhật BIỂU TỔNG TOÀN XÃ
 
-> Menu: **🏛️ Công cụ Xã → 📋 Cập nhật BIỂU TỔNG TOÀN XÃ**
+> Menu: **🏛️ Công cụ Xã → Cập nhật BIỂU TỔNG TOÀN XÃ**
 
 **Kết quả:**
+
 - Cột C (Số hộ): lấy từ Luỹ kế "Tổng số hộ" của mỗi bản
 - Cột D (Số nhân khẩu): lấy từ Luỹ kế "Tổng số nhân khẩu"
 - Dữ liệu được đặt dạng **công thức tham chiếu** → tự động cập nhật
@@ -89,6 +93,7 @@ Trong Apps Script Editor:
 
 **Ví dụ thực tế:**
 Cần thêm chỉ tiêu "Số hộ vay vốn ngân hàng" sau dòng 20:
+
 1. Chọn menu → Nhập **20** → OK
 2. Script tự động:
    - Chèn dòng mới (dòng 21) vào **BIỂU TỔNG** và **54 sheet bản**
@@ -99,6 +104,7 @@ Cần thêm chỉ tiêu "Số hộ vay vốn ngân hàng" sau dòng 20:
    - Cột C, dòng 21: "Hộ"
 
 **Nguyên lý "Tính vị trí theo tổng số dòng":**
+
 ```
 // KHÔNG làm thế này (hardcode số dòng - sai):
 formula = "='BẢN NÀ LỐC'!D21"
@@ -112,9 +118,9 @@ formula = "='BẢN NÀ LỐC'!D" + newRow  // Dùng biến newRow
 
 ### Chức năng 4: Xóa dòng (Nâng cao ⭐)
 
-> Menu: **🏛️ Công cụ Xã → 📝 Quản lý dòng → ❌ Xóa dòng**
+> Menu: **🏛️ Công cụ Xã → 📝 Quản lý dòng → Xóa dòng**
 
-⚠️ **Cảnh báo:** Không thể hoàn tác. Script sẽ xác nhận 2 lần trước khi xóa.
+**Cảnh báo:** Không thể hoàn tác. Script sẽ xác nhận 2 lần trước khi xóa.
 
 ---
 
@@ -122,26 +128,26 @@ formula = "='BẢN NÀ LỐC'!D" + newRow  // Dùng biến newRow
 
 ### Cấu trúc Sheet
 
-| Sheet | Vai trò |
-|-------|---------|
-| `BIỂU TỔNG` | Tổng hợp chỉ tiêu toàn xã (formula-based) |
-| `BIỂU TỔNG TOÀN XÃ` | Tổng hợp hộ/nhân khẩu theo bản |
-| `DS BẢN, TK ` | Danh sách 54 bản/tiểu khu (tĩnh) |
-| `BẢN NÀ LỐC` ... `BẢN CÁT LÌNH` | 54 sheet bản (nhập liệu) |
+| Sheet                           | Vai trò                                   |
+| ------------------------------- | ----------------------------------------- |
+| `BIỂU TỔNG`                     | Tổng hợp chỉ tiêu toàn xã (formula-based) |
+| `BIỂU TỔNG TOÀN XÃ`             | Tổng hợp hộ/nhân khẩu theo bản            |
+| `DS BẢN, TK `                   | Danh sách 54 bản/tiểu khu (tĩnh)          |
+| `BẢN NÀ LỐC` ... `BẢN CÁT LÌNH` | 54 sheet bản (nhập liệu)                  |
 
 ### Cấu trúc Cột (BIỂU TỔNG & Sheet bản)
 
-| Cột | Ký hiệu | Nội dung |
-|-----|---------|----------|
-| A | Stt | Số thứ tự |
-| B | Nội dung | Tên chỉ tiêu |
-| C | ĐVT | Đơn vị tính |
-| D | Đầu kỳ | Số liệu đầu kỳ |
-| E | Tháng 10 | Số phát sinh T10 |
-| F | Tháng 11 | Số phát sinh T11 |
-| G | Tháng 12 | Số phát sinh T12 |
-| H | Luỹ kế | = D+E+F+G |
-| I | Ghi chú | |
+| Cột | Ký hiệu  | Nội dung         |
+| --- | -------- | ---------------- |
+| A   | Stt      | Số thứ tự        |
+| B   | Nội dung | Tên chỉ tiêu     |
+| C   | ĐVT      | Đơn vị tính      |
+| D   | Đầu kỳ   | Số liệu đầu kỳ   |
+| E   | Tháng 10 | Số phát sinh T10 |
+| F   | Tháng 11 | Số phát sinh T11 |
+| G   | Tháng 12 | Số phát sinh T12 |
+| H   | Luỹ kế   | = D+E+F+G        |
+| I   | Ghi chú  |                  |
 
 ### Công thức tổng hợp (BIỂU TỔNG)
 
@@ -154,12 +160,12 @@ formula = "='BẢN NÀ LỐC'!D" + newRow  // Dùng biến newRow
 
 ## ❓ XỬ LÝ LỖI THƯỜNG GẶP
 
-| Lỗi | Nguyên nhân | Giải pháp |
-|-----|-------------|-----------|
-| Menu không hiện | Chưa chạy `onOpen` | Extensions → Apps Script → Run `onOpen` |
-| "Không tìm thấy sheet" | Tên sheet khác | Sửa `CONFIG.SHEETS_HE_THONG` |
-| Công thức hiện `#REF!` | Xóa/đổi tên sheet bản | Chạy lại "Tổng hợp BIỂU TỔNG" |
-| "Không tìm thấy dòng Tổng số hộ" | Tên khác | Sửa `CONFIG.NOI_DUNG_TONG_SO_HO` |
+| Lỗi                              | Nguyên nhân           | Giải pháp                               |
+| -------------------------------- | --------------------- | --------------------------------------- |
+| Menu không hiện                  | Chưa chạy `onOpen`    | Extensions → Apps Script → Run `onOpen` |
+| "Không tìm thấy sheet"           | Tên sheet khác        | Sửa `CONFIG.SHEETS_HE_THONG`            |
+| Công thức hiện `#REF!`           | Xóa/đổi tên sheet bản | Chạy lại "Tổng hợp BIỂU TỔNG"           |
+| "Không tìm thấy dòng Tổng số hộ" | Tên khác              | Sửa `CONFIG.NOI_DUNG_TONG_SO_HO`        |
 
 ---
 
@@ -167,20 +173,22 @@ formula = "='BẢN NÀ LỐC'!D" + newRow  // Dùng biến newRow
 
 ### Yêu cầu đã đáp ứng
 
-✅ **Cơ bản:** Tổng hợp số liệu từ các bản → BIỂU TỔNG  
-✅ **Nâng cao:** Thêm dòng → đồng bộ tất cả sheet, giữ chức năng tổng hợp  
-✅ **"Tính vị trí theo tổng số dòng":** Dùng biến `newRow` và hàm `timDong()`  
+**Cơ bản:** Tổng hợp số liệu từ các bản → BIỂU TỔNG  
+ **Nâng cao:** Thêm dòng → đồng bộ tất cả sheet, giữ chức năng tổng hợp  
+ **"Tính vị trí theo tổng số dòng":** Dùng biến `newRow` và hàm `timDong()`
 
 ### Giải thích kỹ thuật cho báo cáo
 
 **Vấn đề:** Khi thêm dòng, số dòng của các ô thay đổi → công thức tham chiếu sai.
 
-**Giải pháp:** 
+**Giải pháp:**
+
 1. Chèn dòng vào sheet bản TRƯỚC → Google Sheets tự điều chỉnh tham chiếu
 2. Chèn dòng vào BIỂU TỔNG SAU → dòng mới trống
 3. Đặt công thức cho dòng mới dùng `newRow` thực tế (không hardcode)
 
 **Hàm quan trọng:**
+
 ```javascript
 // Xây dựng công thức với số dòng ĐỘNG
 function xayDungCongThucTongHop(row, colNumber, banNames) { ... }

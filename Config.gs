@@ -107,9 +107,19 @@ var CONFIG = {
    * hoàn toàn trống vì hàm không bao giờ chạy được đến bước ghi công thức.
    */
 
-  /** Tên chỉ tiêu "Hộ nghèo" trong cột B */
-  NOI_DUNG_HO_NGHEO: "Hộ nghèo",
+  /**
+   * Tên chỉ tiêu "Số hộ nghèo" trong cột B
+   * [SỬA LỖI v1.2] Giá trị cũ "Hộ nghèo" không khớp với nội dung thực tế
+   * trong sheet bản (cột B row 290 = "Số hộ nghèo"). Hàm timDong() trả -1
+   * nên cột E trong BIỂU TỔNG TOÀN XÃ luôn trống.
+   */
+  NOI_DUNG_HO_NGHEO: "Số hộ nghèo",
 
-  /** Tên chỉ tiêu "Hộ cận nghèo" trong cột B */
-  NOI_DUNG_HO_CAN_NGHEO: "Hộ cận nghèo",
+  /**
+   * Tên chỉ tiêu "Số hộ cận nghèo" trong cột B
+   * [SỬA LỖI v1.2] Giá trị cũ "Hộ cận nghèo" không khớp với nội dung thực tế
+   * trong sheet bản (cột B row 291 = "Số hộ cận nghèo"). Hàm timDong() trả -1
+   * nên cột F trong BIỂU TỔNG TOÀN XÃ luôn trống.
+   */
+  NOI_DUNG_HO_CAN_NGHEO: "Số hộ cận nghèo",
 };

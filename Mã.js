@@ -1,28 +1,3 @@
-/**
- * ============================================================
- * CODE.GS - MENU & HÀM TIỆN ÍCH
- * ============================================================
- * Đây là file điều phối chính.
- * Gồm:
- *   1. onOpen()  - Tạo menu tùy chỉnh khi mở file
- *   2. Các hàm tiện ích dùng chung (helper functions)
- *   3. Các hàm gọi từ menu (wrapper functions)
- *
- * LỊCH SỬ SỬA LỖI:
- *   v1.1 - Thêm guard kiểm tra null/undefined vào timDong()
- *          để tránh crash khi CONFIG thiếu hằng số.
- *          Sửa tongHopBieuTong() để rebuild cả cột H khi bị mất.
- * ============================================================
- */
-
-// ============================================================
-// PHẦN 1: MENU
-// ============================================================
-
-/**
- * Chạy tự động khi người dùng mở Google Sheets.
- * Tạo menu "🏛️ Công cụ Xã" trên thanh menu.
- */
 function onOpen() {
   var ui;
   try {
@@ -32,11 +7,11 @@ function onOpen() {
     return;
   }
 
-  ui.createMenu("🏛️ Công cụ Xã")
+  ui.createMenu(" Công cụ Tổng hợp dữ liệu cấp xã")
 
     // Nhóm tổng hợp dữ liệu (Cơ bản)
-    .addItem("📊 Tổng hợp BIỂU TỔNG từ các bản", "tongHopBieuTong")
-    .addItem("📋 Cập nhật BIỂU TỔNG TOÀN XÃ", "tongHopToanXa")
+    .addItem(" Tổng hợp BIỂU TỔNG từ các bản", "tongHopBieuTong")
+    .addItem(" Cập nhật BIỂU TỔNG TOÀN XÃ", "tongHopToanXa")
 
     .addSeparator()
 
@@ -45,7 +20,30 @@ function onOpen() {
       ui
         .createMenu("📝 Quản lý dòng chỉ tiêu")
         .addItem("➕ Thêm dòng mới (đồng bộ tất cả sheet)", "themDongDongBo")
-        .addItem("❌ Xóa dòng     (đồng bộ tất cả sheet)", "xoaDongDongBo"),
+        .addItem(" Xóa dòng     (đồng bộ tất cả sheet)", "xoaDongDongBo")
+        .addSeparator()
+        .addItem(
+          " Đồng bộ Nội dung & ĐVT sang sheet bản",
+          "dongBoNoiDungThuCong",
+        ),
+    )
+
+    .addSeparator()
+
+    // Nhóm quản lý cột (Nâng cao)
+    .addSubMenu(
+      ui
+        .createMenu("📅 Quản lý cột tháng")
+        .addItem(
+          "➕ Thêm cột tháng mới (đồng bộ tất cả sheet)",
+          "themCotDongBo",
+        )
+        .addItem(" Xóa cột tháng   (đồng bộ tất cả sheet)", "xoaCotDongBo")
+        .addSeparator()
+        .addItem(
+          " Đồng bộ tiêu đề cột sang sheet bản",
+          "dongBoTieuDeCotThuCong",
+        ),
     )
 
     .addSeparator()
@@ -54,7 +52,7 @@ function onOpen() {
     .addItem("🔄 Xây dựng lại toàn bộ công thức", "xayDungLaiCongThuc")
     .addItem("🩺 Audit công thức BIỂU TỔNG", "auditBieuTong")
     .addItem("⚡ Sửa tự động theo AUDIT", "suaTuDongTheoAudit")
-    .addItem("🏘️ Xem danh sách sheet bản", "xemDanhSachBan")
+    .addItem(" Xem danh sách sheet bản", "xemDanhSachBan")
 
     .addSeparator()
 
@@ -255,7 +253,7 @@ function timDong(sheet, noiDung, startRow, col) {
  */
 function xemDanhSachBan() {
   var banNames = layTenSheetBan();
-  var msg = "🏘️ Danh sách " + banNames.length + " bản/tiểu khu:\n\n";
+  var msg = " Danh sách " + banNames.length + " bản/tiểu khu:\n\n";
   banNames.forEach(function (name, i) {
     msg += i + 1 + ". " + name + "\n";
   });
@@ -291,19 +289,25 @@ function hienThiHuongDan() {
     "   Dùng sau khi các bản đã nhập xong số liệu.\n" +
     "   Script tự động tính tổng từ tất cả sheet bản\n" +
     "   và cập nhật công thức trong BIỂU TỔNG.\n\n" +
-    "2. 📋 CẬP NHẬT BIỂU TỔNG TOÀN XÃ\n" +
+    "2.  CẬP NHẬT BIỂU TỔNG TOÀN XÃ\n" +
     "   Cập nhật số hộ, nhân khẩu, hộ nghèo, cận nghèo\n" +
     "   từng bản vào bảng tổng hợp toàn xã.\n\n" +
     "3. ➕ THÊM DÒNG MỚI (Nâng cao)\n" +
     "   Chèn dòng chỉ tiêu mới đồng thời vào TẤT CẢ sheet.\n" +
     "   Sau khi thêm, chức năng tổng hợp vẫn hoạt động đúng.\n\n" +
-    "4. ❌ XÓA DÒNG (Nâng cao)\n" +
+    "4.  XÓA DÒNG (Nâng cao)\n" +
     "   Xóa dòng chỉ tiêu đồng thời khỏi TẤT CẢ sheet.\n\n" +
-    "5. 🔄 XÂY DỰNG LẠI CÔNG THỨC\n" +
+    "5. ➕ THÊM CỘT THÁNG MỚI (Nâng cao)\n" +
+    "   Chèn cột tháng mới vào trước Luỹ kế, đồng bộ TẤT CẢ sheet.\n" +
+    "   Công thức tổng hợp và Luỹ kế tự động cập nhật.\n\n" +
+    "6.  XÓA CỘT THÁNG (Nâng cao)\n" +
+    "   Xóa cột tháng đồng thời khỏi TẤT CẢ sheet.\n" +
+    "   Luỹ kế tự động được rebuild sau khi xóa.\n\n" +
+    "7. 🔄 XÂY DỰNG LẠI CÔNG THỨC\n" +
     "   Dùng khi công thức bị lỗi hoặc thêm sheet bản mới.\n\n" +
-    "6. 🩺 AUDIT\n" +
+    "8. 🩺 AUDIT\n" +
     "   Phát hiện ô thiếu công thức hoặc sai sheet tham chiếu.\n\n" +
-    "7. ⚡ SỬA TỰ ĐỘNG THEO AUDIT\n" +
+    "9. ⚡ SỬA TỰ ĐỘNG THEO AUDIT\n" +
     "   Ghi lại công thức kỳ vọng cho ô bị báo THIEU_CONG_THUC,\n" +
     "   CONG_THUC_KHONG_KHOP, và THAM_CHIEU_SAI_SHEET.";
   SpreadsheetApp.getUi().alert(msg);
@@ -594,4 +598,259 @@ function uniqueValues_(arr) {
       }),
     ),
   );
+}
+
+// ============================================================
+// PHẦN 5: ĐỒNG BỘ NỘI DUNG TỰ ĐỘNG (onEdit Trigger)
+// ============================================================
+
+/**
+ * TRIGGER TỰ ĐỘNG - Đồng bộ nội dung cột B và C.
+ *
+ * ────────────────────────────────────────────────────────────
+ * NGUYÊN LÝ:
+ * ────────────────────────────────────────────────────────────
+ * Khi người dùng nhập/sửa bất kỳ ô nào ở cột B (Nội dung)
+ * hoặc cột C (Đơn vị tính) của BIỂU TỔNG (từ dòng dữ liệu
+ * trở đi), trigger này tự động sao chép nội dung vừa nhập
+ * sang CÙNG Ô ĐÓ ở TẤT CẢ sheet bản.
+ *
+ * Ví dụ: Gõ tại B14 → tự copy sang B14 của mọi sheet bản.
+ *
+ * ────────────────────────────────────────────────────────────
+ * HỖ TRỢ CẢ PASTE NHIỀU Ô:
+ * ────────────────────────────────────────────────────────────
+ * Nếu người dùng paste một vùng bao gồm cột B và/hoặc C,
+ * hàm xử lý toàn bộ vùng đó thay vì chỉ 1 ô.
+ *
+ * ────────────────────────────────────────────────────────────
+ *  LƯU Ý CÀI ĐẶT:
+ * ────────────────────────────────────────────────────────────
+ * onEdit() là Simple Trigger — tự động chạy, KHÔNG cần
+ * cài đặt thêm. Tuy nhiên nếu muốn hiện toast thông báo,
+ * cần quyền SpreadsheetApp (đã có sẵn trong dự án này).
+ * ────────────────────────────────────────────────────────────
+ *
+ * @param {GoogleAppsScript.Events.SheetsOnEdit} e - Sự kiện edit
+ */
+function onEdit(e) {
+  if (!e || !e.range) return;
+
+  var sheet = e.range.getSheet();
+
+  // Chỉ xử lý trong BIỂU TỔNG
+  if (sheet.getName() !== CONFIG.SHEET_BIEU_TONG) return;
+
+  var editStartRow = e.range.getRow();
+  var editNumRows = e.range.getNumRows();
+  var editStartCol = e.range.getColumn();
+  var editNumCols = e.range.getNumColumns();
+  var editEndCol = editStartCol + editNumCols - 1;
+
+  // Kiểm tra vùng edit có chứa cột B hoặc C không
+  var coChứaCotB =
+    editStartCol <= CONFIG.COT_NOI_DUNG && CONFIG.COT_NOI_DUNG <= editEndCol;
+  var coChứaCotC =
+    editStartCol <= CONFIG.COT_DVT && CONFIG.COT_DVT <= editEndCol;
+
+  if (!coChứaCotB && !coChứaCotC) return;
+
+  // Chỉ xử lý từ dòng dữ liệu trở đi
+  var dataStart = CONFIG.DONG_DU_LIEU_BAT_DAU;
+  var overlapStart = Math.max(editStartRow, dataStart);
+  var overlapEnd = editStartRow + editNumRows - 1;
+
+  if (overlapStart > overlapEnd) return; // Toàn bộ vùng edit nằm trên header
+
+  var numRowsToSync = overlapEnd - overlapStart + 1;
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var banSheets = laySheetBan(ss);
+  if (banSheets.length === 0) return;
+
+  try {
+    // Đọc giá trị từ BIỂU TỔNG cho vùng cần đồng bộ
+    var noiDungData = coChứaCotB
+      ? sheet
+          .getRange(overlapStart, CONFIG.COT_NOI_DUNG, numRowsToSync, 1)
+          .getValues()
+      : null;
+    var dvtData = coChứaCotC
+      ? sheet
+          .getRange(overlapStart, CONFIG.COT_DVT, numRowsToSync, 1)
+          .getValues()
+      : null;
+
+    var successCount = 0;
+
+    banSheets.forEach(function (banSheet) {
+      try {
+        var banLastRow = banSheet.getLastRow();
+        if (banLastRow < overlapStart) return;
+
+        // Tính số dòng thực tế có thể ghi vào sheet bản
+        var writeRows = Math.min(numRowsToSync, banLastRow - overlapStart + 1);
+        if (writeRows <= 0) return;
+
+        if (noiDungData) {
+          banSheet
+            .getRange(overlapStart, CONFIG.COT_NOI_DUNG, writeRows, 1)
+            .setValues(noiDungData.slice(0, writeRows));
+        }
+        if (dvtData) {
+          banSheet
+            .getRange(overlapStart, CONFIG.COT_DVT, writeRows, 1)
+            .setValues(dvtData.slice(0, writeRows));
+        }
+        successCount++;
+      } catch (err) {
+        Logger.log(
+          '[onEdit] Lỗi ghi vào sheet "' +
+            banSheet.getName() +
+            '": ' +
+            err.message,
+        );
+      }
+    });
+
+    // Toast nhẹ, không chặn người dùng
+    var colNames = [];
+    if (coChứaCotB) colNames.push("Nội dung (B)");
+    if (coChứaCotC) colNames.push("ĐVT (C)");
+
+    SpreadsheetApp.getActive().toast(
+      "Đã đồng bộ " +
+        colNames.join(" & ") +
+        " dòng " +
+        overlapStart +
+        (numRowsToSync > 1 ? "→" + overlapEnd : "") +
+        " → " +
+        successCount +
+        " sheet bản.",
+      " Tự động đồng bộ",
+      4,
+    );
+  } catch (err) {
+    Logger.log("[onEdit] ERROR: " + err.message + "\n" + err.stack);
+  }
+}
+
+/**
+ * ĐỒNG BỘ THỦ CÔNG - Sao chép toàn bộ cột B và C từ BIỂU TỔNG sang sheet bản.
+ *
+ * ────────────────────────────────────────────────────────────
+ * KHI NÀO DÙNG?
+ * ────────────────────────────────────────────────────────────
+ * • Khi mới thiết lập hệ thống lần đầu
+ * • Khi copy-paste toàn bộ nội dung không qua gõ tay
+ * • Khi onEdit không chạy được (ví dụ: chạy script import)
+ * • Khi muốn đảm bảo 100% đồng nhất giữa BIỂU TỔNG và bản
+ * ────────────────────────────────────────────────────────────
+ */
+function dongBoNoiDungThuCong() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetTong = ss.getSheetByName(CONFIG.SHEET_BIEU_TONG);
+
+  if (!sheetTong) {
+    ui.alert(' Không tìm thấy sheet "' + CONFIG.SHEET_BIEU_TONG + '"!');
+    return;
+  }
+
+  var banSheets = laySheetBan(ss);
+  if (banSheets.length === 0) {
+    ui.alert(" Không tìm thấy sheet bản/tiểu khu nào!");
+    return;
+  }
+
+  // Xác nhận trước khi thực hiện
+  var confirm = ui.alert(
+    " Đồng bộ Nội dung & ĐVT sang tất cả sheet bản",
+    "Thao tác này sẽ sao chép toàn bộ:\n" +
+      "  • Cột B (Nội dung/Tên chỉ tiêu)\n" +
+      "  • Cột C (Đơn vị tính)\n\n" +
+      "Từ BIỂU TỔNG → TẤT CẢ " +
+      banSheets.length +
+      " sheet bản.\n\n" +
+      " Dữ liệu hiện có ở cột B và C của các sheet bản SẼ BỊ GHI ĐÈ!\n\n" +
+      "Bạn có muốn tiếp tục?",
+    ui.ButtonSet.YES_NO,
+  );
+
+  if (confirm !== ui.Button.YES) {
+    ui.alert("Đã hủy thao tác.");
+    return;
+  }
+
+  try {
+    var dataStartRow = CONFIG.DONG_DU_LIEU_BAT_DAU;
+    var lastRow = sheetTong.getLastRow();
+
+    if (lastRow < dataStartRow) {
+      ui.alert(" BIỂU TỔNG chưa có dữ liệu (từ dòng " + dataStartRow + ")!");
+      return;
+    }
+
+    var numRows = lastRow - dataStartRow + 1;
+
+    // Đọc toàn bộ cột B và C từ BIỂU TỔNG một lần (tối ưu hiệu suất)
+    var noiDungValues = sheetTong
+      .getRange(dataStartRow, CONFIG.COT_NOI_DUNG, numRows, 1)
+      .getValues();
+    var dvtValues = sheetTong
+      .getRange(dataStartRow, CONFIG.COT_DVT, numRows, 1)
+      .getValues();
+
+    SpreadsheetApp.getActive().toast(
+      "Đang đồng bộ sang " + banSheets.length + " sheet bản...",
+      " Đang xử lý",
+      15,
+    );
+
+    var updatedCount = 0;
+    var skippedCount = 0;
+
+    banSheets.forEach(function (banSheet) {
+      var banLastRow = banSheet.getLastRow();
+      if (banLastRow < dataStartRow) {
+        skippedCount++;
+        return;
+      }
+
+      // Chỉ ghi tới dòng cuối cùng của sheet bản (tránh tạo dòng thừa)
+      var writeRows = Math.min(numRows, banLastRow - dataStartRow + 1);
+
+      banSheet
+        .getRange(dataStartRow, CONFIG.COT_NOI_DUNG, writeRows, 1)
+        .setValues(noiDungValues.slice(0, writeRows));
+
+      banSheet
+        .getRange(dataStartRow, CONFIG.COT_DVT, writeRows, 1)
+        .setValues(dvtValues.slice(0, writeRows));
+
+      updatedCount++;
+    });
+
+    var skipMsg =
+      skippedCount > 0
+        ? "\n Bỏ qua " + skippedCount + " sheet chưa có dữ liệu."
+        : "";
+
+    ui.alert(
+      " ĐỒNG BỘ HOÀN TẤT!\n\n" +
+        " Sheet bản đã cập nhật: " +
+        updatedCount +
+        "\n" +
+        " Số dòng đã đồng bộ:    " +
+        numRows +
+        "\n" +
+        " Cột đã đồng bộ:        B (Nội dung), C (ĐVT)" +
+        skipMsg,
+    );
+  } catch (err) {
+    ui.alert(" LỖI KHI ĐỒNG BỘ!\n\nChi tiết: " + err.message);
+    Logger.log(
+      "[dongBoNoiDungThuCong] ERROR: " + err.message + "\n" + err.stack,
+    );
+  }
 }

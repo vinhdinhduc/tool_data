@@ -36,7 +36,7 @@ function tongHopBieuTong() {
 
     if (!sheetTong) {
       ui.alert(
-        '❌ Không tìm thấy sheet "' +
+        ' Không tìm thấy sheet "' +
           CONFIG.SHEET_BIEU_TONG +
           '"!\n' +
           "Kiểm tra lại tên sheet trong CONFIG.SHEET_BIEU_TONG",
@@ -47,7 +47,7 @@ function tongHopBieuTong() {
     var banNames = layTenSheetBan(ss);
     if (banNames.length === 0) {
       ui.alert(
-        "❌ Không tìm thấy sheet bản/tiểu khu nào!\n" +
+        " Không tìm thấy sheet bản/tiểu khu nào!\n" +
           "Kiểm tra lại CONFIG.SHEETS_HE_THONG",
       );
       return;
@@ -57,7 +57,7 @@ function tongHopBieuTong() {
     var lastRow = sheetTong.getLastRow();
 
     if (lastRow < dataStartRow) {
-      ui.alert("❌ BIỂU TỔNG không có dữ liệu (lastRow=" + lastRow + ")!");
+      ui.alert(" BIỂU TỔNG không có dữ liệu (lastRow=" + lastRow + ")!");
       return;
     }
 
@@ -122,19 +122,19 @@ function tongHopBieuTong() {
     }
 
     ui.alert(
-      "✅ TỔNG HỢP BIỂU TỔNG HOÀN TẤT!\n\n" +
+      " TỔNG HỢP BIỂU TỔNG HOÀN TẤT!\n\n" +
         "📊 Ô công thức đã cập nhật: " +
         updatedCount +
         "\n" +
-        "🏘️ Số bản/tiểu khu:         " +
+        " Số bản/tiểu khu:         " +
         banNames.length +
         "\n" +
-        "📋 Số dòng dữ liệu:          " +
+        " Số dòng dữ liệu:          " +
         numRows,
     );
   } catch (e) {
     ui.alert(
-      "❌ LỖI KHI TỔNG HỢP!\n\n" +
+      " LỖI KHI TỔNG HỢP!\n\n" +
         "Chi tiết: " +
         e.message +
         "\n\n" +
@@ -159,13 +159,13 @@ function tongHopToanXa() {
     var sheetTongXa = ss.getSheetByName(CONFIG.SHEET_TONG_TOAN_XA);
 
     if (!sheetTongXa) {
-      ui.alert('❌ Không tìm thấy sheet "' + CONFIG.SHEET_TONG_TOAN_XA + '"!');
+      ui.alert(' Không tìm thấy sheet "' + CONFIG.SHEET_TONG_TOAN_XA + '"!');
       return;
     }
 
     var banSheets = laySheetBan(ss);
     if (banSheets.length === 0) {
-      ui.alert("❌ Không tìm thấy sheet bản/tiểu khu nào!");
+      ui.alert(" Không tìm thấy sheet bản/tiểu khu nào!");
       return;
     }
 
@@ -196,7 +196,7 @@ function tongHopToanXa() {
 
     if (dongTongSoHo === -1) {
       ui.alert(
-        '❌ Không tìm thấy chỉ tiêu "' +
+        ' Không tìm thấy chỉ tiêu "' +
           CONFIG.NOI_DUNG_TONG_SO_HO +
           '"!\n\n' +
           "Kiểm tra lại:\n" +
@@ -238,6 +238,25 @@ function tongHopToanXa() {
       updatedCount++;
     }
 
+    // ════════════════════════════════════════════════════════
+    // [SỬA LỖI v1.2] Cập nhật dòng "XÃ MƯỜNG LA" (row 4) = SUM toàn bộ bản
+    // Trước đây bị thiếu khiến dòng tổng xã luôn trống.
+    // ════════════════════════════════════════════════════════
+    var dongXa = CONFIG.TONG_XA_DONG_XA;
+    var dongBanCuoi = startRow + banSheets.length - 1;
+    sheetTongXa
+      .getRange(dongXa, CONFIG.TONG_XA_COT_SO_HO)
+      .setFormula("=SUM(C" + startRow + ":C" + dongBanCuoi + ")");
+    sheetTongXa
+      .getRange(dongXa, CONFIG.TONG_XA_COT_NHAN_KHAU)
+      .setFormula("=SUM(D" + startRow + ":D" + dongBanCuoi + ")");
+    sheetTongXa
+      .getRange(dongXa, CONFIG.TONG_XA_COT_HO_NGHEO)
+      .setFormula("=SUM(E" + startRow + ":E" + dongBanCuoi + ")");
+    sheetTongXa
+      .getRange(dongXa, CONFIG.TONG_XA_COT_CAN_NGHEO)
+      .setFormula("=SUM(F" + startRow + ":F" + dongBanCuoi + ")");
+
     var warnings = [];
     if (dongNhanKhau === -1)
       warnings.push('"' + CONFIG.NOI_DUNG_NHAN_KHAU + '"');
@@ -247,29 +266,29 @@ function tongHopToanXa() {
 
     var warnMsg =
       warnings.length > 0
-        ? "\n\n⚠️ Không tìm thấy chỉ tiêu:\n" + warnings.join("\n")
+        ? "\n\n Không tìm thấy chỉ tiêu:\n" + warnings.join("\n")
         : "";
 
     ui.alert(
-      "✅ CẬP NHẬT BIỂU TỔNG TOÀN XÃ HOÀN TẤT!\n\n" +
-        "🏘️ Bản/tiểu khu đã cập nhật: " +
+      " CẬP NHẬT BIỂU TỔNG TOÀN XÃ HOÀN TẤT!\n\n" +
+        " Bản/tiểu khu đã cập nhật: " +
         updatedCount +
         "\n" +
-        "📍 Tổng số hộ tại dòng:      " +
+        " Tổng số hộ tại dòng:      " +
         dongTongSoHo +
         "\n" +
-        "📍 Nhân khẩu tại dòng:       " +
+        " Nhân khẩu tại dòng:       " +
         dongNhanKhau +
         "\n" +
-        "📍 Hộ nghèo tại dòng:        " +
+        " Hộ nghèo tại dòng:        " +
         dongHoNgheo +
         "\n" +
-        "📍 Hộ cận nghèo tại dòng:    " +
+        " Hộ cận nghèo tại dòng:    " +
         dongHoCanNgheo +
         warnMsg,
     );
   } catch (e) {
-    ui.alert("❌ LỖI KHI CẬP NHẬT TOÀN XÃ!\n\nChi tiết: " + e.message);
+    ui.alert(" LỖI KHI CẬP NHẬT TOÀN XÃ!\n\nChi tiết: " + e.message);
     Logger.log("[tongHopToanXa] ERROR: " + e.message + "\n" + e.stack);
   }
 }
@@ -287,13 +306,13 @@ function auditBieuTong() {
     var reportSheetName = "AUDIT_BIEU_TONG";
 
     if (!sheetTong) {
-      ui.alert('❌ Không tìm thấy sheet "' + CONFIG.SHEET_BIEU_TONG + '"!');
+      ui.alert(' Không tìm thấy sheet "' + CONFIG.SHEET_BIEU_TONG + '"!');
       return;
     }
 
     var banNames = layTenSheetBan(ss);
     if (banNames.length === 0) {
-      ui.alert("❌ Không tìm thấy sheet bản/tiểu khu nào để audit!");
+      ui.alert(" Không tìm thấy sheet bản/tiểu khu nào để audit!");
       return;
     }
 
@@ -306,7 +325,7 @@ function auditBieuTong() {
     var lastRow = sheetTong.getLastRow();
 
     if (lastRow < dataStartRow) {
-      ui.alert("ℹ️ BIỂU TỔNG chưa có dữ liệu để audit.");
+      ui.alert(" BIỂU TỔNG chưa có dữ liệu để audit.");
       return;
     }
 
@@ -445,7 +464,7 @@ function auditBieuTong() {
         reportSheetName,
     );
   } catch (e) {
-    ui.alert("❌ LỖI KHI AUDIT: " + e.message);
+    ui.alert(" LỖI KHI AUDIT: " + e.message);
     Logger.log("[auditBieuTong] ERROR: " + e.message + "\n" + e.stack);
   }
 }
@@ -478,14 +497,14 @@ function suaTuDongTheoAudit() {
     var reportSheet = ss.getSheetByName(reportName);
     if (!reportSheet) {
       ui.alert(
-        '❌ Không tìm thấy báo cáo "' + reportName + '". Hãy chạy audit trước.',
+        ' Không tìm thấy báo cáo "' + reportName + '". Hãy chạy audit trước.',
       );
       return;
     }
 
     var lastRow = reportSheet.getLastRow();
     if (lastRow < 2) {
-      ui.alert("ℹ️ Báo cáo audit không có lỗi để sửa.");
+      ui.alert(" Báo cáo audit không có lỗi để sửa.");
       return;
     }
 
@@ -519,7 +538,7 @@ function suaTuDongTheoAudit() {
 
     if (fixes.length === 0) {
       ui.alert(
-        "ℹ️ Không tìm thấy lỗi có thể sửa tự động.\n\n" +
+        " Không tìm thấy lỗi có thể sửa tự động.\n\n" +
           (skipped > 0
             ? skipped +
               " lỗi KHONG_PHAI_CONG_THUC_TONG_HOP cần xem xét thủ công."
@@ -533,7 +552,7 @@ function suaTuDongTheoAudit() {
       fixes.length +
       " công thức vào BIỂU TỔNG (D:G)." +
       (skipped > 0
-        ? "\n\n⚠️ " +
+        ? "\n\n " +
           skipped +
           " lỗi KHONG_PHAI_CONG_THUC_TONG_HOP bị bỏ qua (cần xem xét thủ công)."
         : "") +
@@ -548,7 +567,7 @@ function suaTuDongTheoAudit() {
 
     var sheetTong = ss.getSheetByName(CONFIG.SHEET_BIEU_TONG);
     if (!sheetTong) {
-      ui.alert('❌ Không tìm thấy sheet "' + CONFIG.SHEET_BIEU_TONG + '"!');
+      ui.alert(' Không tìm thấy sheet "' + CONFIG.SHEET_BIEU_TONG + '"!');
       return;
     }
 
@@ -570,9 +589,9 @@ function suaTuDongTheoAudit() {
       }
     }
 
-    ui.alert("✅ Sửa tự động hoàn tất. Ô đã ghi công thức: " + applied);
+    ui.alert(" Sửa tự động hoàn tất. Ô đã ghi công thức: " + applied);
   } catch (e) {
-    ui.alert("❌ LỖI khi sửa tự động: " + e.message);
+    ui.alert(" LỖI khi sửa tự động: " + e.message);
     Logger.log("[suaTuDongTheoAudit] ERROR: " + e.message + "\n" + e.stack);
   }
 }
